@@ -12,8 +12,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from dotenv import load_dotenv
 
-# Import KKPay API class
+# Import KKPay API class and shared data
 from kkpay_api import KKPayAPI
+from shared_data import (
+    get_user_account, add_transaction, add_pending_order, 
+    get_pending_order, remove_pending_order
+)
 
 # Load environment variables
 load_dotenv()
@@ -44,35 +48,8 @@ class UserStates(StatesGroup):
     waiting_for_withdraw_amount = State()
     waiting_for_recipient_tg_id = State()
 
-# In-memory storage (use database in production)
-user_accounts: Dict[int, Dict] = {}
-pending_orders: Dict[str, Dict] = {}
-
 # Initialize KKPay API
 kkpay = KKPayAPI(KKPAY_MERCHANT_ID, KKPAY_SECRET)
-
-def get_user_account(user_id: int) -> dict:
-    """Get or create user account"""
-    if user_id not in user_accounts:
-        user_accounts[user_id] = {
-            'balance': 0.0,
-            'transactions': [],
-            'created_at': datetime.now().isoformat()
-        }
-    return user_accounts[user_id]
-
-def add_transaction(user_id: int, tx_type: str, amount: float, status: str, order_id: str = "", note: str = ""):
-    """Add transaction record"""
-    account = get_user_account(user_id)
-    transaction = {
-        'type': tx_type,
-        'amount': amount,
-        'status': status,
-        'order_id': order_id,
-        'note': note,
-        'timestamp': datetime.now().isoformat()
-    }
-    account['transactions'].append(transaction)
 
 def get_main_menu_keyboard():
     """Create main menu keyboard"""
@@ -246,25 +223,27 @@ async def process_topup_amount(message: Message, state: FSMContext):
         logger.info(f"Creating payment link: user_order={user_order}, amount={amount}, coin={coin}")
         
         # Store pending order
-        pending_orders[user_order] = {
+        add_pending_order(user_order, {
             'user_id': user_id,
             'amount': amount,
             'coin': coin,
             'type': 'topup',
             'status': 'pending',
             'created_at': datetime.now().isoformat()
-        }
+        })
         
         response = await kkpay.create_payment_link(user_order, amount, coin, display_name)
         
-        if response.get('code') == 10000:
+        if response.get('code') == 1000:
             data = response.get('data', {})
             pay_url = data.get('pay_url', '')
             txid = data.get('txid', '')
             fee = data.get('fee', '0')
             
             # Update pending order with KKPay txid
-            pending_orders[user_order]['txid'] = txid
+            order = get_pending_order(user_order)
+            if order:
+                order['txid'] = txid
             
             # Add pending transaction record
             add_transaction(user_id, 'topup', amount, 'pending', user_order, f"充值 {coin}")
@@ -420,14 +399,9 @@ async def process_withdraw_amount(message: Message, state: FSMContext):
 
 请输入收款人的 Telegram ID:
 
-**如何获取 Telegram ID:**
-1. 转发任意消息给 @userinfobot
-2. 机器人会返回您的 Telegram ID
-3. 或询问收款人的 Telegram ID
-
 **注意:** 收款人必须已经启动过 @kkpay 机器人才能收款
 
-请输入收款人的 Telegram ID (纯数字):
+请输入收款人的 Telegram ID:
         """
         
         await message.answer(
@@ -469,7 +443,7 @@ async def process_recipient_id(message: Message, state: FSMContext):
         display_name = f"抖音商城提现 - {username}"
         
         # Store pending order
-        pending_orders[user_order] = {
+        add_pending_order(user_order, {
             'user_id': user_id,
             'recipient_id': recipient_id,
             'amount': amount,
@@ -477,19 +451,21 @@ async def process_recipient_id(message: Message, state: FSMContext):
             'type': 'withdraw',
             'status': 'pending',
             'created_at': datetime.now().isoformat()
-        }
+        })
         
         response = await kkpay.create_withdraw_order(user_order, amount, coin, recipient_id, display_name)
         
-        if response.get('code') == 10000:
+        if response.get('code') == 1000:
             data = response.get('data', {})
             txid = data.get('txid', '')
             fee = data.get('fee', '0')
             order_status = data.get('orderStatus', 'pending')
             
             # Update pending order with KKPay txid
-            pending_orders[user_order]['txid'] = txid
-            pending_orders[user_order]['fee'] = fee
+            order = get_pending_order(user_order)
+            if order:
+                order['txid'] = txid
+                order['fee'] = fee
             
             # Deduct balance (will be refunded if withdrawal fails)
             account = get_user_account(user_id)
