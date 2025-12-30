@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 KKPAY_MERCHANT_ID = os.getenv('KKPAY_MERCHANT_ID', 'demo_merchant_123')
 KKPAY_SECRET = os.getenv('KKPAY_SECRET', 'demo_secret_key_456')
-CALLBACK_URL = os.getenv('CALLBACK_URL', 'https://your-domain.com/callback')
 
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is required")
@@ -637,72 +636,6 @@ async def handle_unexpected_message(message: Message, state: FSMContext):
             "请使用 /start 命令开始使用抖音商城钱包系统。",
             reply_markup=get_main_menu_keyboard()
         )
-
-# Webhook handler for KKPay callbacks (for production use with a web server)
-async def handle_kkpay_callback(callback_data: dict):
-    """Handle KKPay payment callbacks"""
-    try:
-        business_type = callback_data.get('businessType')
-        
-        if business_type == 'deposit':
-            # Handle successful deposit
-            user_order = callback_data.get('userOrder')
-            amount = float(callback_data.get('amount', 0))
-            pay_user = callback_data.get('payUser')
-            
-            if user_order in pending_orders:
-                order = pending_orders[user_order]
-                user_id = order['user_id']
-                
-                # Update account balance
-                account = get_user_account(user_id)
-                account['balance'] += amount
-                
-                # Update transaction status
-                for tx in account['transactions']:
-                    if tx['order_id'] == user_order:
-                        tx['status'] = 'success'
-                        break
-                
-                # Clean up pending order
-                del pending_orders[user_order]
-                
-                # Notify user (in production, you'd send a message)
-                logger.info(f"Deposit successful: user_id={user_id}, amount={amount}")
-                
-        elif business_type == 'withdrawalPendingConfirm':
-            # Handle withdrawal confirmation request
-            user_order = callback_data.get('userOrder')
-            # In production, you would implement logic to confirm or reject the withdrawal
-            logger.info(f"Withdrawal pending confirmation: {user_order}")
-            
-        elif business_type == 'withdraw':
-            # Handle withdrawal completion
-            user_order = callback_data.get('userOrder')
-            order_status = callback_data.get('orderStatus')
-            
-            if user_order in pending_orders:
-                order = pending_orders[user_order]
-                user_id = order['user_id']
-                
-                # Update transaction status
-                account = get_user_account(user_id)
-                for tx in account['transactions']:
-                    if tx['order_id'] == user_order:
-                        tx['status'] = order_status
-                        break
-                
-                # If withdrawal failed, refund the balance
-                if order_status == 'fail':
-                    account['balance'] += order['amount']
-                
-                # Clean up pending order
-                del pending_orders[user_order]
-                
-                logger.info(f"Withdrawal completed: user_id={user_id}, status={order_status}")
-                
-    except Exception as e:
-        logger.error(f"Error handling KKPay callback: {e}")
 
 async def main():
     """Main function to start the bot"""
