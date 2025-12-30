@@ -43,7 +43,7 @@ class KKPayAPI:
             
             # Headers
             headers = {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/json',
                 'KKPAY-SIGN': sign,
                 'KKPAY-ID': self.merchant_id
             }
@@ -71,7 +71,7 @@ class KKPayAPI:
             'amount': amount,
             'coin': coin,
             'name': name,
-            'return_url': 'https://t.me/your_bot'  # Return to bot after payment
+            'return_url': 'https://t.me/TimiSupport_bot'  # Return to bot after payment
         }
         return await self.make_request(KKPAY_ENDPOINTS['payLink'], data)
     
