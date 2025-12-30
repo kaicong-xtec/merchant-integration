@@ -3,7 +3,6 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, Optional
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
