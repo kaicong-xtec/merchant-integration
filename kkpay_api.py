@@ -7,14 +7,15 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 
-# KKPay API endpoints
+# KKPay API endpoints (Corrected based on documentation)
 KKPAY_BASE_URL = 'https://www.gamepay.tech/merchant/'
+KKPAY_API_BASE_URL = 'https://www.gamepay.tech/api/merchant/'
 KKPAY_ENDPOINTS = {
-    'payLink': KKPAY_BASE_URL + 'payLink',
-    'createWithdrawOrder': KKPAY_BASE_URL + 'createWithdrawOrder',
-    'checkDeposit': KKPAY_BASE_URL + 'checkDeposit',
-    'checkWithdraw': KKPAY_BASE_URL + 'checkWithdraw',
-    'censorUserByTG': KKPAY_BASE_URL + 'censorUserByTG'
+    'payLink': KKPAY_BASE_URL + 'payLink',                    # /merchant/payLink
+    'createWithdrawOrder': KKPAY_BASE_URL + 'createWithdrawOrder',  # /merchant/createWithdrawOrder
+    'checkDeposit': KKPAY_BASE_URL + 'checkDeposit',          # /merchant/checkDeposit
+    'checkWithdraw': KKPAY_API_BASE_URL + 'checkWithdraw',    # /api/merchant/checkWithdraw (has /api/)
+    'censorUserByTG': KKPAY_API_BASE_URL + 'censorUserbyTGID'  # /api/merchant/censorUserbyTGID (has /api/)
 }
 
 class KKPayAPI:
